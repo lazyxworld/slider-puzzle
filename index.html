@@ -245,6 +245,7 @@
       (() => {
         const N = 4;
         const BOARD_PX = 480;
+        const SWIPE_MIN = 30;
 
         /* DOM */
         const imageInput   = document.getElementById('imageInput');
@@ -266,6 +267,8 @@
         let moves         = 0;
         let startTime     = null;
         let timerHandle   = null;
+        let swipeStart    = null;
+        let swipeId       = null;
 
         /* Init */
         document.documentElement.style.setProperty('--grid-size', N);
@@ -275,6 +278,9 @@
         blankSelect.addEventListener('change', onBlankChange);
         document.addEventListener('keydown', onKey);
         closeDialog.addEventListener('click', () => winDialog.close());
+        boardEl.addEventListener('pointerdown', onPointerDown);
+        boardEl.addEventListener('pointerup', onPointerUp);
+        boardEl.addEventListener('pointercancel', onPointerCancel);
 
         /* Upload */
         function onUpload(e) {
@@ -375,18 +381,48 @@
         /* Render */
         function render() {
           boardEl.innerHTML = '';
-          board.forEach((tileIdx,pos)=>{
+          board.forEach((tileIdx, pos) => {
             const div = document.createElement('div');
             div.className = 'tile';
-            div.style.gridColumnStart = pos%N+1;
-            div.style.gridRowStart = Math.floor(pos/N)+1;
-            if (tileIdx===blankIndex) {
+            div.style.gridColumnStart = pos % N + 1;
+            div.style.gridRowStart = Math.floor(pos / N) + 1;
+            if (tileIdx === blankIndex) {
               div.classList.add('blank');
             } else {
               div.style.backgroundImage = `url('${tileImages[tileIdx]}')`;
             }
             boardEl.appendChild(div);
           });
+        }
+
+        function onPointerDown(e) {
+          if (!tileImages.length) return;
+          swipeStart = { x: e.clientX, y: e.clientY };
+          swipeId = e.pointerId;
+          boardEl.setPointerCapture(e.pointerId);
+        }
+
+        function onPointerUp(e) {
+          if (e.pointerId !== swipeId || !swipeStart) return;
+          boardEl.releasePointerCapture(e.pointerId);
+          swipeId = null;
+          const dx = e.clientX - swipeStart.x;
+          const dy = e.clientY - swipeStart.y;
+          swipeStart = null;
+          const adx = Math.abs(dx);
+          const ady = Math.abs(dy);
+          if (Math.max(adx, ady) < SWIPE_MIN) return;
+          const key = adx > ady
+            ? (dx > 0 ? 'ArrowRight' : 'ArrowLeft')
+            : (dy > 0 ? 'ArrowDown' : 'ArrowUp');
+          onKey({ key });
+        }
+
+        function onPointerCancel(e) {
+          if (e.pointerId !== swipeId) return;
+          boardEl.releasePointerCapture(e.pointerId);
+          swipeId = null;
+          swipeStart = null;
         }
 
         /* Movement */
